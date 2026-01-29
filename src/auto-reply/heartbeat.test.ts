@@ -108,6 +108,40 @@ describe("stripHeartbeatToken", () => {
       didStrip: true,
     });
   });
+
+  it("strips markdown-wrapped token and preserves remaining text", () => {
+    expect(stripHeartbeatToken(`**${HEARTBEAT_TOKEN}** all good`, { mode: "message" })).toEqual({
+      shouldSkip: false,
+      text: "all good",
+      didStrip: true,
+    });
+    expect(stripHeartbeatToken(`all good **${HEARTBEAT_TOKEN}**`, { mode: "message" })).toEqual({
+      shouldSkip: false,
+      text: "all good",
+      didStrip: true,
+    });
+  });
+
+  it("does not strip unrelated markdown that follows the token", () => {
+    expect(stripHeartbeatToken(`${HEARTBEAT_TOKEN} **bold**`, { mode: "message" })).toEqual({
+      shouldSkip: false,
+      text: "**bold**",
+      didStrip: true,
+    });
+  });
+
+  it("strips markdown-wrapped tokens followed by punctuation", () => {
+    expect(stripHeartbeatToken(`**${HEARTBEAT_TOKEN}**.`, { mode: "heartbeat" })).toEqual({
+      shouldSkip: true,
+      text: "",
+      didStrip: true,
+    });
+    expect(stripHeartbeatToken(`**${HEARTBEAT_TOKEN}**. all good`, { mode: "message" })).toEqual({
+      shouldSkip: false,
+      text: ". all good",
+      didStrip: true,
+    });
+  });
 });
 
 describe("isHeartbeatContentEffectivelyEmpty", () => {
