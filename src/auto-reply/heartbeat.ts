@@ -55,21 +55,37 @@ function stripTokenAtEdges(raw: string): { text: string; didStrip: boolean } {
   const token = HEARTBEAT_TOKEN;
   if (!text.includes(token)) return { text, didStrip: false };
 
+  const stripLeadingWrapper = (value: string) => {
+    if (!value) return value;
+    const match = value.match(/^([*`~_]+)(\s|$)/);
+    if (!match) return value;
+    return value.slice(match[1].length).trimStart();
+  };
+
+  const stripTrailingWrapper = (value: string) => {
+    if (!value) return value;
+    const match = value.match(/(^|\s)([*`~_]+)$/);
+    if (!match) return value;
+    return value.slice(0, value.length - match[2].length).trimEnd();
+  };
+
   let didStrip = false;
   let changed = true;
   while (changed) {
     changed = false;
     const next = text.trim();
     if (next.startsWith(token)) {
-      const after = next.slice(token.length).trimStart();
+      const after = stripLeadingWrapper(next.slice(token.length).trimStart());
       text = after;
       didStrip = true;
       changed = true;
       continue;
     }
     if (next.endsWith(token)) {
-      const before = next.slice(0, Math.max(0, next.length - token.length));
-      text = before.trimEnd();
+      const before = stripTrailingWrapper(
+        next.slice(0, Math.max(0, next.length - token.length)).trimEnd(),
+      );
+      text = before;
       didStrip = true;
       changed = true;
     }
@@ -100,12 +116,19 @@ export function stripHeartbeatToken(
 
   // Normalize lightweight markup so HEARTBEAT_OK wrapped in HTML/Markdown
   // (e.g., <b>HEARTBEAT_OK</b> or **HEARTBEAT_OK**) still strips.
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tokenPattern = new RegExp(
+    `([*\\\`~_]+)\\s*(${escapeRegExp(HEARTBEAT_TOKEN)})\\s*([*\\\`~_]+)`,
+    "g",
+  );
   const stripMarkup = (text: string) =>
     text
       // Drop HTML tags.
       .replace(/<[^>]*>/g, " ")
       // Decode common nbsp variant.
       .replace(/&nbsp;/gi, " ")
+      // Normalize wrapper characters around the token even if punctuation follows.
+      .replace(tokenPattern, "$2")
       // Remove markdown-ish wrappers at the edges.
       .replace(/^[*`~_]+/, "")
       .replace(/[*`~_]+$/, "");
